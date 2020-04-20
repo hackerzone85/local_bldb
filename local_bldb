@@ -1,0 +1,31 @@
+#!/bin/sh
+mkdir -p bldb
+
+cd bldb
+
+mkdir -p all_bldb_fasta
+
+cd all_bldb_fasta
+
+for link in $(lynx -accept_all_cookies -dump http://www.bldb.eu/seq_prot/ | grep "http" | sed -e "s/^.*http/http/")
+do
+	wget -c $link
+done 
+
+cat *.fasta > all_bla_prot.fa
+
+rm *.fasta
+
+cd ..
+
+mkdir src
+
+mv all_bldb_fasta/all_bla_prot.fa src/
+
+rm -r all_bldb_fasta
+
+cp src/all_bla_prot.fa .
+
+mv all_bla_prot.fa sequences
+
+makeblastdb -in sequences -title "Beta-Lactamase DataBase (BLDB)" -dbtype prot -hash_index -logfile src/makeblastdb.log
