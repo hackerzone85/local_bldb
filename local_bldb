@@ -1,31 +1,40 @@
 #!/bin/sh
-mkdir -p bldb
 
-cd bldb
+# Create the main directory for BLDB data
+echo "LOG: Creating main directory for BLDB data..."
+mkdir -p local_bldb
+echo "LOG: Main directory created."
 
-mkdir -p all_bldb_fasta
+# Switch to main directory
+cd local_bldb || { echo "Failed to change directory to local_bldb"; exit 1; }
 
-cd all_bldb_fasta
+# Fetch all HTTP links from the BLDB webpage and download each FASTA file
+echo "LOG: Fetching HTTP links from BLDB webpage..."
+lynx -accept_all_cookies -dump http://www.bldb.eu/seq_prot/ | \
+grep "http" | \
+sed -e "s/^.*http/http/" | \
+grep ".fasta" > all_bla_prot_links
+echo "LOG: Links fetched and saved to all_bla_prot_links."
 
-for link in $(lynx -accept_all_cookies -dump http://www.bldb.eu/seq_prot/ | grep "http" | sed -e "s/^.*http/http/")
-do
-	wget -c $link
-done 
+# Download the all URLs using Python script
+echo "LOG: Downloading FASTA files using Python script..."
+python3 ../download_urls.py || { echo "Python script failed"; exit 1; }
+echo "LOG: FASTA files downloaded."
 
-cat *.fasta > all_bla_prot.fa
+# Combine all downloaded FASTA files into one file
+echo "LOG: Combining downloaded FASTA files into one file..."
+cat *.fasta > sequences
+echo "LOG: Combined FASTA files into sequences."
 
-rm *.fasta
+# Create a BLAST database from the sequences file
+echo "LOG: Creating BLAST database from sequences file..."
+makeblastdb -in sequences -title "Beta-Lactamase DataBase (BLDB)" -dbtype prot -hash_index -parse_seqids -out bldb -logfile makeblastdb.log
+if [ $? -eq 0 ]; then
+    echo "LOG: BLAST database created successfully."
+else
+    echo "Error: Failed to create BLAST database."
+    exit 1
+fi
 
-cd ..
-
-mkdir src
-
-mv all_bldb_fasta/all_bla_prot.fa src/
-
-rm -r all_bldb_fasta
-
-cp src/all_bla_prot.fa .
-
-mv all_bla_prot.fa sequences
-
-makeblastdb -in sequences -title "Beta-Lactamase DataBase (BLDB)" -dbtype prot -hash_index -logfile src/makeblastdb.log
+cd ../
+echo "All tasks completed successfully!"
